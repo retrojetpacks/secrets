@@ -14,3 +14,49 @@ save vars in .env like...
 Then in app.js
 	console.log(process.env.API_KEY);
 MAKE SURE TO ADD .env to .gitignore
+Deploy - Heroku can handle config vars, need to set them up in the interface
+
+Level 3)
+Hashing
+Removing the need for keys
+Hash function -> turns password into a hash. Very hard to turn it back, MATHS.
+npm i md5
+md5()    - Hash on a given string is always the same
+
+Level 4)
+Salting
+PW + Salt -> Hash 
+Increases PW complexity
+Salt stored in DB
+MD5 is a fast hash
+bcrypt is a sloooow hash, 10^6 x slower that md5
+Salt rounds: salt, hash, salt hash, etc. Use same salt.
+
+Level 5) 
+Cookies.
+passport - node module
+pasport - sessions
+serialise - stuffs stuff into cookies
+deserialise - passport opens cookie and finds goodies
+//passport local mongoose saves on passport code
+//Remember that the user is signed in (authed) by storing this info in cookies
+
+Level 6) 
+3rd party OAUTH 
+-Open standard for token based authorisation
+// 'login with etc etc...'
+Make a get request to facebook, fb posts back data
+OAUTH - granular level of access
+- only some fields
+- r/w access
+- 3rd party site can revoke access, ie user logins into fb to revoke it. 
+
+Login with Google using passport.js
+passport strategies dictate local, google etc, type of auth
+
+
+
+
+
+
+

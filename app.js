@@ -2,34 +2,73 @@ require('dotenv').config(); //run this at top
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
-const mongoose = require("mongoose");
-const encrypt = require("mongoose-encryption");
 //const _ = require("lodash"); //For word processing
+const mongoose = require("mongoose");
+
+//Level 6 security - cookies
+//PLM can remember if a user is authed, using cookies
+const session = require("express-session");
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const findOrCreate = require("mongoose-findorcreate");
 
 const app = express();
-console.log(process.env.API_KEY);
-
 app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public/'));
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
 
+app.use(session({
+  secret: "Our little secret.",
+  resave: false,
+  saveUninitialized: false
+}));
+
+app.use(passport.initialize()); //setup passport
+app.use(passport.session()); //use passport to deal with sessions
 
 // ============= DB Setup =================//
 mongoose.connect("mongodb://localhost:27017/secretsDB", {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
+mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema({
   email: String,
   password: String
 });
 
-userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ['password'] });
-//encrypts on save, decrypts on find
-
+userSchema.plugin(passportLocalMongoose); //extend mongodb with passport stuff
+userSchema.plugin(findOrCreate); //extend mongodb with passport stuff
 
 const User = mongoose.model("User", userSchema);
+
+//======== Setup passport strategies ========//
+passport.use(User.createStrategy()); // use static authenticate method of model in LocalStrategy
+passport.serializeUser(User.serializeUser()); //static serialize and deserialize model for passport session support
+passport.deserializeUser(User.deserializeUser());
+
+//Setup OAUTH google 2.0
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhosty:3000/auth/google/secrets",
+    //userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    //This is a passport pseudocode, you must setup find and create route
+    //Angela points to a npm module that implements it
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+
+
 
 // const welcome = new Post({
 //   title: "Welcome!",
@@ -43,6 +82,11 @@ app.get("/", function(req, res) {
   res.render("home");
 });
 
+app.get("/auth/google", function(req, res) {
+  //initiate google authed
+  passport.authenticate("google", { scope: ["profile"] }); //user's google profile, email, id etc
+});
+
 app.get("/login", function(req, res) {
   res.render("login");
 });
@@ -51,39 +95,56 @@ app.get("/register", function(req, res) {
   res.render("register");
 });
 
+app.get("/secrets", function(req, res) {
+  //use passportLocalMongoose to check user is authenticated
+  if (req.isAuthenticated()){
+    res.render("secrets");
+  } else {
+    res.redirect("/login");
+  }
+});
+
+app.get("/logout", function(req, res) {
+  //use PLM to deauth user
+  req.logout();
+  res.redirect("/");
+});
 
 
 
-app.post("/register", function(req, res){
-  const newUser = new User({
-    email: req.body.username,
+app.post("/register", function(req, res) {
+  //use passport local mongoose to register()
+  //PLM handles registrations
+  User.register({username: req.body.username}, req.body.password, function(err, newUser){
+    if (err) {
+      console.log(err);
+      res.redirect("/");
+    } else {
+      passport.authenticate("local")(req,res, function(){
+        res.redirect("/secrets");
+      })
+    }
+  })
+});
+
+
+app.post("/login", function(req, res) {
+  const user = new User({
+    username: req.body.username,
     password: req.body.password
   });
 
-  newUser.save(function(err){
+  //Now use passport to login and auth this user
+  req.login(user, function(err){
     if (err) {
       console.log(err);
     } else {
-      res.render("secrets");   //only render secrets from register route
+      passport.authenticate("local")(req, res, function(){
+        res.redirect("/secrets");
+      })
     }
-  });
-});
+  })
 
-app.post("/login", function(req, res){
-  const username = req.body.username;
-  const password = req.body.password;
-
-  User.findOne({email: username}, function(err, foundUser){
-    if (err) {
-      console.log(err);
-    } else {
-      if (foundUser){
-        if (foundUser.password === password){
-          res.render("secrets");   //only render secrets from login route
-        }
-      }
-    };
-  });
 });
 
 
