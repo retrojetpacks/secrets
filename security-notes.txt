@@ -1,4 +1,16 @@
 Notes on web security
 
 Level 1)
-Accounts
+Accounts - basic password in text
+
+Level 2)
+Encryption
+Environment variables - store sensitive variables
+dotenv  -node module for env vars
+-require right at top of file to ensure al env variables are configured
+touch .env
+save vars in .env like...
+	SECRET=ThisIsOutLittleSecret.
+Then in app.js
+	console.log(process.env.API_KEY);
+MAKE SURE TO ADD .env to .gitignore
