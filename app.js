@@ -55,13 +55,17 @@ passport.deserializeUser(User.deserializeUser());
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
-    callbackURL: "http://localhosty:3000/auth/google/secrets",
+    callbackURL: "http://localhost:3000/auth/google/secrets",
     //userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
   },
   function(accessToken, refreshToken, profile, cb) {
     //This is a passport pseudocode, you must setup find and create route
     //Angela points to a npm module that implements it
-    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+    console.log("User login from: " + profile);
+
+    User.findOrCreate({
+      googleId: profile.id
+    }, function(err, user) {
       return cb(err, user);
     });
   }
@@ -82,10 +86,23 @@ app.get("/", function(req, res) {
   res.render("home");
 });
 
-app.get("/auth/google", function(req, res) {
+app.get("/auth/google",
   //initiate google authed
-  passport.authenticate("google", { scope: ["profile"] }); //user's google profile, email, id etc
-});
+  passport.authenticate("google", {
+    scope: ["profile"]
+  }) //user's google profile, email, id etc
+);
+
+//Get the redirect once google login confirmed
+app.get("/auth/google/secrets",
+  passport.authenticate("google", {
+    failureRedirect: "/login"
+  }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  }
+);
 
 app.get("/login", function(req, res) {
   res.render("login");
@@ -97,7 +114,7 @@ app.get("/register", function(req, res) {
 
 app.get("/secrets", function(req, res) {
   //use passportLocalMongoose to check user is authenticated
-  if (req.isAuthenticated()){
+  if (req.isAuthenticated()) {
     res.render("secrets");
   } else {
     res.redirect("/login");
@@ -115,12 +132,14 @@ app.get("/logout", function(req, res) {
 app.post("/register", function(req, res) {
   //use passport local mongoose to register()
   //PLM handles registrations
-  User.register({username: req.body.username}, req.body.password, function(err, newUser){
+  User.register({
+    username: req.body.username
+  }, req.body.password, function(err, newUser) {
     if (err) {
       console.log(err);
       res.redirect("/");
     } else {
-      passport.authenticate("local")(req,res, function(){
+      passport.authenticate("local")(req, res, function() {
         res.redirect("/secrets");
       })
     }
@@ -135,11 +154,11 @@ app.post("/login", function(req, res) {
   });
 
   //Now use passport to login and auth this user
-  req.login(user, function(err){
+  req.login(user, function(err) {
     if (err) {
       console.log(err);
     } else {
-      passport.authenticate("local")(req, res, function(){
+      passport.authenticate("local")(req, res, function() {
         res.redirect("/secrets");
       })
     }
