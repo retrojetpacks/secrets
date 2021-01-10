@@ -38,7 +38,8 @@ mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema({
   email: String,
-  password: String
+  password: String,
+  googleId: String
 });
 
 userSchema.plugin(passportLocalMongoose); //extend mongodb with passport stuff
@@ -48,8 +49,16 @@ const User = mongoose.model("User", userSchema);
 
 //======== Setup passport strategies ========//
 passport.use(User.createStrategy()); // use static authenticate method of model in LocalStrategy
-passport.serializeUser(User.serializeUser()); //static serialize and deserialize model for passport session support
-passport.deserializeUser(User.deserializeUser());
+//Works for any serialization, including google
+passport.serializeUser(function(user, done) {
+  done(null, user.id);
+});
+
+passport.deserializeUser(function(id, done){
+  User.findById, function(err, user) {
+    done(err,user);
+  };
+});
 
 //Setup OAUTH google 2.0
 passport.use(new GoogleStrategy({
@@ -61,7 +70,7 @@ passport.use(new GoogleStrategy({
   function(accessToken, refreshToken, profile, cb) {
     //This is a passport pseudocode, you must setup find and create route
     //Angela points to a npm module that implements it
-    console.log("User login from: " + profile);
+    console.log("User login from: " + profile.displayName);
 
     User.findOrCreate({
       googleId: profile.id
@@ -100,7 +109,7 @@ app.get("/auth/google/secrets",
   }),
   function(req, res) {
     // Successful authentication, redirect home.
-    res.redirect('/secrets');
+    res.redirect("/secrets");
   }
 );
 
