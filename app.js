@@ -11,6 +11,7 @@ const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const FacebookStrategy = require("passport-facebook").Strategy;
 const findOrCreate = require("mongoose-findorcreate");
 
 const app = express();
@@ -54,18 +55,21 @@ passport.serializeUser(function(user, done) {
   done(null, user.id);
 });
 
-passport.deserializeUser(function(id, done){
-  User.findById, function(err, user) {
-    done(err,user);
-  };
+passport.deserializeUser(function(id, done) {
+  User.findById,
+    function(err, user) {
+      done(err, user);
+    };
 });
+
+
 
 //Setup OAUTH google 2.0
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
     callbackURL: "http://localhost:3000/auth/google/secrets",
-    //userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
   },
   function(accessToken, refreshToken, profile, cb) {
     //This is a passport pseudocode, you must setup find and create route
@@ -81,6 +85,20 @@ passport.use(new GoogleStrategy({
 ));
 
 
+//Test facebook oauth2
+passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({
+      facebookId: profile.id
+    }, function(err, user) {
+      return cb(err, user);
+    });
+  }
+));
 
 
 // const welcome = new Post({
@@ -95,6 +113,8 @@ app.get("/", function(req, res) {
   res.render("home");
 });
 
+
+//================= Third Party OAUTH ==================//
 app.get("/auth/google",
   //initiate google authed
   passport.authenticate("google", {
@@ -108,10 +128,35 @@ app.get("/auth/google/secrets",
     failureRedirect: "/login"
   }),
   function(req, res) {
+    console.log("redirected from google");
     // Successful authentication, redirect home.
-    res.redirect("/secrets");
-  }
-);
+    //console.log(req);
+    console.log(res);
+    //BUG!! /does not redirect, even to root /
+    //res.redirect("/secrets");
+    //res.redirect("/");
+    res.render("secrets");
+  });
+
+
+  app.get("/auth/facebook",
+    //initiate facebook authed
+    passport.authenticate("facebook", {
+      //scope: ["profile"]
+    })
+  );
+
+  app.get("/auth/facebook/secrets",
+    passport.authenticate("facebook", {
+      failureRedirect: "/login"
+    }),
+    function(req, res) {
+      console.log("redirected from facebook");
+      res.render("secrets");
+    });
+
+
+
 
 app.get("/login", function(req, res) {
   res.render("login");
@@ -122,7 +167,9 @@ app.get("/register", function(req, res) {
 });
 
 app.get("/secrets", function(req, res) {
+  //BUG!!!! Doesn't reach secrets and log this
   //use passportLocalMongoose to check user is authenticated
+  console.log("Arrived at secrets");
   if (req.isAuthenticated()) {
     res.render("secrets");
   } else {
