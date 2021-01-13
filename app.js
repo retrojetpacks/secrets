@@ -52,14 +52,23 @@ const User = mongoose.model("User", userSchema);
 passport.use(User.createStrategy()); // use static authenticate method of model in LocalStrategy
 //Works for any serialization, including google
 passport.serializeUser(function(user, done) {
+  //place user's id in a cookie
   done(null, user.id);
 });
 
+// passport.deserializeUser(function(id, done) {
+//   User.findById,
+//     function(err, user) {
+//       done(err, user);
+//     };
+// });
+
 passport.deserializeUser(function(id, done) {
-  User.findById,
+  //retrieve user from database by id
+  User.findById(id,
     function(err, user) {
       done(err, user);
-    };
+    });
 });
 
 
@@ -118,7 +127,7 @@ app.get("/", function(req, res) {
 app.get("/auth/google",
   //initiate google authed
   passport.authenticate("google", {
-    scope: ["profile"]
+    scope: ["profile", "email"]
   }) //user's google profile, email, id etc
 );
 
@@ -131,11 +140,12 @@ app.get("/auth/google/secrets",
     console.log("redirected from google");
     // Successful authentication, redirect home.
     //console.log(req);
-    console.log(res);
+    //console.log(res);
     //BUG!! /does not redirect, even to root /
     //res.redirect("/secrets");
     //res.redirect("/");
     res.render("secrets");
+    //res.send(req.user);
   });
 
 
@@ -148,12 +158,14 @@ app.get("/auth/google/secrets",
 
   app.get("/auth/facebook/secrets",
     passport.authenticate("facebook", {
+      successRedirect: "/secrets",
       failureRedirect: "/login"
     }),
-    function(req, res) {
-      console.log("redirected from facebook");
-      res.render("secrets");
-    });
+    // function(req, res) {
+    //   console.log("redirected from facebook");
+    //   res.render("secrets");
+    // }
+  );
 
 
 
